@@ -4,11 +4,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [cart, setCart] = useState<any[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState([0, 500]);
+  const [showOnlyDiscounts, setShowOnlyDiscounts] = useState(false);
 
   const categories = [
     { id: 'fruits', name: 'Фрукты', icon: 'Apple', color: 'bg-destructive' },
@@ -35,7 +42,33 @@ const Index = () => {
   ];
 
   const addToCart = (product: any) => {
-    setCart([...cart, product]);
+    setCart([...cart, { ...product, cartId: Date.now() }]);
+  };
+
+  const removeFromCart = (cartId: number) => {
+    setCart(cart.filter(item => item.cartId !== cartId));
+  };
+
+  const getTotalPrice = () => {
+    return cart.reduce((sum, item) => {
+      const price = item.discount 
+        ? Math.round(item.price * (1 - item.discount / 100))
+        : item.price;
+      return sum + price;
+    }, 0);
+  };
+
+  const getFilteredProducts = () => {
+    return products.filter(product => {
+      const finalPrice = product.discount 
+        ? Math.round(product.price * (1 - product.discount / 100))
+        : product.price;
+      
+      const priceMatch = finalPrice >= priceRange[0] && finalPrice <= priceRange[1];
+      const discountMatch = !showOnlyDiscounts || product.discount;
+      
+      return priceMatch && discountMatch;
+    });
   };
 
   return (
@@ -59,17 +92,125 @@ const Index = () => {
             </nav>
 
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="relative">
-                <Icon name="ShoppingCart" size={22} />
-                {cart.length > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary">
-                    {cart.length}
-                  </Badge>
-                )}
-              </Button>
+              <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Icon name="ShoppingCart" size={22} />
+                    {cart.length > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-primary">
+                        {cart.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-lg">
+                  <SheetHeader>
+                    <SheetTitle>Корзина</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-8 flex flex-col h-[calc(100vh-200px)]">
+                    {cart.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center text-center">
+                        <div>
+                          <Icon name="ShoppingCart" size={64} className="mx-auto text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground">Корзина пуста</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 overflow-auto space-y-4 pr-2">
+                          {cart.map((item) => {
+                            const finalPrice = item.discount 
+                              ? Math.round(item.price * (1 - item.discount / 100))
+                              : item.price;
+                            return (
+                              <Card key={item.cartId}>
+                                <CardContent className="p-4">
+                                  <div className="flex gap-4">
+                                    <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold mb-1">{item.name}</h4>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-primary">{finalPrice} ₽</span>
+                                        {item.discount && (
+                                          <Badge variant="destructive" className="text-xs">-{item.discount}%</Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => removeFromCart(item.cartId)}
+                                      className="h-8 w-8"
+                                    >
+                                      <Icon name="Trash2" size={18} />
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                        <div className="border-t pt-4 mt-4 space-y-4">
+                          <div className="flex justify-between text-lg font-bold">
+                            <span>Итого:</span>
+                            <span className="text-primary">{getTotalPrice()} ₽</span>
+                          </div>
+                          <Button className="w-full bg-primary hover:bg-primary/90" size="lg">
+                            Оформить заказ
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
               <Button variant="ghost" size="icon">
                 <Icon name="User" size={22} />
               </Button>
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Icon name="Menu" size={22} />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left">
+                  <SheetHeader>
+                    <SheetTitle>Меню</SheetTitle>
+                  </SheetHeader>
+                  <nav className="flex flex-col gap-4 mt-8">
+                    <button 
+                      onClick={() => { setActiveSection('home'); setIsMobileMenuOpen(false); }} 
+                      className="text-left py-3 px-4 hover:bg-muted rounded-lg transition-colors"
+                    >
+                      Главная
+                    </button>
+                    <button 
+                      onClick={() => { setActiveSection('catalog'); setIsMobileMenuOpen(false); }} 
+                      className="text-left py-3 px-4 hover:bg-muted rounded-lg transition-colors"
+                    >
+                      Каталог
+                    </button>
+                    <button 
+                      onClick={() => { setActiveSection('deals'); setIsMobileMenuOpen(false); }} 
+                      className="text-left py-3 px-4 hover:bg-muted rounded-lg transition-colors"
+                    >
+                      Акции
+                    </button>
+                    <button 
+                      onClick={() => { setActiveSection('delivery'); setIsMobileMenuOpen(false); }} 
+                      className="text-left py-3 px-4 hover:bg-muted rounded-lg transition-colors"
+                    >
+                      Доставка
+                    </button>
+                    <button 
+                      onClick={() => { setActiveSection('contacts'); setIsMobileMenuOpen(false); }} 
+                      className="text-left py-3 px-4 hover:bg-muted rounded-lg transition-colors"
+                    >
+                      Контакты
+                    </button>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
@@ -208,18 +349,62 @@ const Index = () => {
       {activeSection === 'catalog' && (
         <main className="container mx-auto px-4 py-12 animate-fade-in">
           <h2 className="text-4xl font-bold mb-8">Каталог товаров</h2>
-          <Tabs defaultValue="all" className="mb-8">
-            <TabsList className="mb-8">
-              <TabsTrigger value="all">Все товары</TabsTrigger>
-              <TabsTrigger value="fruits">Фрукты</TabsTrigger>
-              <TabsTrigger value="vegetables">Овощи</TabsTrigger>
-              <TabsTrigger value="dairy">Молочные</TabsTrigger>
-              <TabsTrigger value="bakery">Хлеб</TabsTrigger>
-              <TabsTrigger value="drinks">Напитки</TabsTrigger>
-            </TabsList>
+          
+          <div className="grid lg:grid-cols-4 gap-8 mb-8">
+            <Card className="lg:col-span-1">
+              <CardContent className="p-6">
+                <h3 className="font-bold text-lg mb-4">Фильтры</h3>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-sm font-semibold mb-3 block">Цена: {priceRange[0]} - {priceRange[1]} ₽</label>
+                    <Slider 
+                      value={priceRange} 
+                      onValueChange={setPriceRange}
+                      max={500}
+                      step={10}
+                      className="mb-2"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="discounts" 
+                      checked={showOnlyDiscounts}
+                      onCheckedChange={(checked) => setShowOnlyDiscounts(checked as boolean)}
+                    />
+                    <label htmlFor="discounts" className="text-sm font-medium cursor-pointer">
+                      Только со скидкой
+                    </label>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      setPriceRange([0, 500]);
+                      setShowOnlyDiscounts(false);
+                    }}
+                  >
+                    Сбросить фильтры
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <div className="lg:col-span-3">
+              <Tabs defaultValue="all" className="mb-8">
+                <TabsList className="mb-8">
+                  <TabsTrigger value="all">Все товары</TabsTrigger>
+                  <TabsTrigger value="fruits">Фрукты</TabsTrigger>
+                  <TabsTrigger value="vegetables">Овощи</TabsTrigger>
+                  <TabsTrigger value="dairy">Молочные</TabsTrigger>
+                  <TabsTrigger value="bakery">Хлеб</TabsTrigger>
+                  <TabsTrigger value="drinks">Напитки</TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="all" className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
+                <TabsContent value="all" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {getFilteredProducts().map((product) => (
                 <Card key={product.id} className="overflow-hidden hover:shadow-xl transition-all">
                   <div className="relative">
                     <img src={product.image} alt={product.name} className="w-full h-48 object-cover" />
@@ -238,8 +423,10 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ))}
-            </TabsContent>
-          </Tabs>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
         </main>
       )}
 
